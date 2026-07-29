@@ -34,7 +34,7 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
   // Group and filter formats
   const processFormats = () => {
     const videoFormats: Format[] = [];
-    let audioFormat: Format | null = null;
+    let audioFormat: any = null;
     
     const sorted = [...(videoInfo?.formats || [])].reverse();
     
@@ -63,7 +63,7 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
 
     return { 
       videoFormats: videoFormats.slice(0, 5), 
-      audioFormat 
+      audioFormat: audioFormat as any 
     };
   };
 
@@ -76,7 +76,7 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
     setDownloadProgress('Starting download...');
     
     try {
-      const isAudio = selectedFormat === audioFormat?.format_id;
+      const isAudio = selectedFormat === (audioFormat as any)?.format_id;
       const downloadUrl = `/api/download?url=${encodeURIComponent(videoInfo.webpage_url)}&format_id=${selectedFormat}&type=${isAudio ? 'audio' : 'video'}`;
       
       const a = document.createElement('a');
@@ -132,8 +132,8 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
           
           {audioFormat && (
             <button
-              className={`format-btn ${selectedFormat === audioFormat.format_id ? 'selected' : ''}`}
-              onClick={() => setSelectedFormat(audioFormat.format_id)}
+              className={`format-btn ${selectedFormat === (audioFormat as any)?.format_id ? 'selected' : ''}`}
+              onClick={() => setSelectedFormat((audioFormat as any)?.format_id)}
             >
               <Music size={20} />
               <span className="format-quality">Audio</span>
@@ -156,7 +156,7 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
           ) : (
             <>
               <Download size={20} />
-              Download {selectedFormat === audioFormat?.format_id ? 'Audio' : 'Video'}
+              Download {selectedFormat === (audioFormat as any)?.format_id ? 'Audio' : 'Video'}
             </>
           )}
         </button>
