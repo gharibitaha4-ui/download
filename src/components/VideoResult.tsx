@@ -135,8 +135,8 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
           
           {audioFormat && (
             <button
-              className={`format-btn ${selectedFormat === audioFormat.format_id ? 'selected' : ''}`}
-              onClick={() => setSelectedFormat(audioFormat.format_id)}
+              className={`format-btn ${selectedFormat === (audioFormat as any)?.format_id ? 'selected' : ''}`}
+                onClick={() => setSelectedFormat((audioFormat as any)?.format_id)}
             >
               <Music size={20} />
               <span className="format-quality">Audio</span>
