@@ -1,3 +1,5 @@
+'use client';
+
 import { useState } from 'react';
 import { Download, Loader2, Music, Video } from 'lucide-react';
 
@@ -34,7 +36,7 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
     const videoFormats: Format[] = [];
     let audioFormat: Format | null = null;
     
-    const sorted = [...videoInfo.formats].reverse();
+    const sorted = [...(videoInfo?.formats || [])].reverse();
     
     sorted.forEach(f => {
       // Find best audio
@@ -61,7 +63,7 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
 
     return { 
       videoFormats: videoFormats.slice(0, 5), 
-      audioFormat: audioFormat as Format | null 
+      audioFormat 
     };
   };
 
@@ -77,9 +79,10 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
       const isAudio = selectedFormat === audioFormat?.format_id;
       const downloadUrl = `/api/download?url=${encodeURIComponent(videoInfo.webpage_url)}&format_id=${selectedFormat}&type=${isAudio ? 'audio' : 'video'}`;
       
-      const isAudio = selectedFormat === (audioFormat as any)?.format_id;
+      const a = document.createElement('a');
       a.href = downloadUrl;
       a.setAttribute('download', '');
+      document.body.appendChild(a);
       a.click();
       a.remove();
       
@@ -125,8 +128,7 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
               <span className="format-quality">{f.format_note || f.resolution}</span>
               <span className="format-type">MP4 • {formatSize(f.filesize)}</span>
             </button>
-          ))} 
-          Download {selectedFormat === (audioFormat as any)?.format_id ? 'Audio' : 'Video'}
+          ))}
           
           {audioFormat && (
             <button
@@ -137,7 +139,6 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
               <span className="format-quality">Audio</span>
               <span className="format-type">MP3 Extract</span>
             </button>
-      className={`format-btn ${selectedFormat === (audioFormat as any)?.format_id ? 'selected' : ''}`}
           )}
         </div>
         
