@@ -1,84 +1,52 @@
-import { NextRequest } from 'next/server';
-import { exec } from 'yt-dlp-exec';
+import { NextResponse } from 'next/server';
+import ytDlp from 'yt-dlp-exec';
+import fs from 'fs';
+import path from 'path';
 
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const url = searchParams.get('url');
-  const formatId = searchParams.get('format_id');
-  const type = searchParams.get('type') || 'video'; // 'video' or 'audio'
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const videoUrl = searchParams.get('url');
 
-  if (!url || !formatId) {
-    return new Response('URL and format_id are required', { status: 400 });
+  if (!videoUrl) {
+    return NextResponse.json({ error: 'URL is required' }, { status: 400 });
   }
 
   try {
-    // Determine args based on whether we want to extract audio or just download the format
-    let args: any = {
-      f: formatId,
-      o: '-', // output to stdout
+    // 1. Path dyal cookies file f server
+    const cookiesPath = path.join(process.cwd(), 'cookies.txt');
+
+    // 2. Ila kan YOUTUBE_COOKIES f Render Environment Variables, n-ktboha f cookies.txt
+    if (process.env.YOUTUBE_COOKIES && !fs.existsSync(cookiesPath)) {
+      fs.writeFileSync(cookiesPath, process.env.YOUTUBE_COOKIES);
+    }
+
+    // 3. Options dyal yt-dlp bash y-fayt l-bot detection dyal YouTube
+    const options: Record<string, any> = {
+      dumpSingleJson: true,
       noWarnings: true,
       noCallHome: true,
       noCheckCertificate: true,
+      // User Agent dyal browser 3adi
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      // Had l-line kat-khelli YouTube y-shoufk bhal Android App w ma-y-tlobch login
+      extractorArgs: 'youtube:player_client=android,web',
     };
 
-    if (type === 'audio') {
-      // If audio is requested, extract audio and convert to mp3
-      args = {
-        ...args,
-        extractAudio: true,
-        audioFormat: 'mp3',
-        // When extracting audio, outputting to stdout as mp3 requires some specific handling in yt-dlp
-        // yt-dlp can output to stdout.
-      };
+    // Ila kan cookies file kayn, passih l yt-dlp
+    if (fs.existsSync(cookiesPath)) {
+      options.cookies = cookiesPath;
     }
 
-    const process = exec(url, args);
+    // Run yt-dlp
+    const output = await ytDlp(videoUrl, options);
 
-    // Create a ReadableStream from the child process stdout
-    const stream = new ReadableStream({
-      start(controller) {
-        process.stdout?.on('data', (chunk) => {
-          controller.enqueue(chunk);
-        });
-
-        process.stdout?.on('end', () => {
-          controller.close();
-        });
-
-        process.stderr?.on('data', (data) => {
-          console.log(`yt-dlp stderr: ${data}`);
-        });
-
-        process.on('close', (code) => {
-          if (code !== 0 && code !== null) {
-            console.error(`yt-dlp process exited with code ${code}`);
-            // If the stream isn't closed, close it on error
-            try { controller.close(); } catch {}
-          }
-        });
-        
-        process.on('error', (err) => {
-           console.error('yt-dlp process error:', err);
-           controller.error(err);
-        });
-      },
-      cancel() {
-        process.kill();
-      }
-    });
-
-    const filename = `download-${Date.now()}.${type === 'audio' ? 'mp3' : 'mp4'}`;
-
-    return new Response(stream, {
-      headers: {
-        'Content-Type': type === 'audio' ? 'audio/mpeg' : 'video/mp4',
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        // We can't provide Content-Length easily when streaming stdout
-      },
-    });
+    return NextResponse.json(output);
 
   } catch (error: any) {
-    console.error('Error in download route:', error);
-    return new Response('Internal Server Error', { status: 500 });
+    console.error('yt-dlp error:', error);
+    return NextResponse.json(
+      { error: error?.message || 'Failed to extract video info' },
+      { status: 500 }
+    );
   }
 }
