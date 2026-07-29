@@ -21,7 +21,6 @@ export async function POST(request: NextRequest) {
     const info = await ytDlp(url, {
       dumpSingleJson: true,
       noWarnings: true,
-      noCallHome: true,
       noCheckCertificate: true,
     });
 
