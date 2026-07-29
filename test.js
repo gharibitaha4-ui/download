@@ -5,7 +5,6 @@ async function run() {
     const info = await ytDlp('https://www.youtube.com/watch?v=jNQXAC9IVRw', {
       dumpSingleJson: true,
       noWarnings: true,
-      noCallHome: true,
       noCheckCertificate: true,
     });
     console.log("SUCCESS");
