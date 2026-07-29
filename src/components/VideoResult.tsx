@@ -34,9 +34,7 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
     const videoFormats: Format[] = [];
     let audioFormat: Format | null = null;
     
-    // Simplistic filtering for demonstration. yt-dlp returns many formats.
-    // Usually we want standard mp4s with video+audio or the best audio for mp3
-    const sorted = [...videoInfo.formats].reverse(); // Usually better quality is at the end or we can just filter
+    const sorted = [...videoInfo.formats].reverse();
     
     sorted.forEach(f => {
       // Find best audio
@@ -44,11 +42,9 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
         audioFormat = f;
       }
       
-      // Find video formats (has both or is a notable resolution)
+      // Find video formats
       if (f.vcodec !== 'none' && f.ext === 'mp4') {
-        // avoid duplicates by resolution
         if (!videoFormats.find(vf => vf.resolution === f.resolution || vf.format_note === f.format_note)) {
-           // Basic filter to ensure it's a typical res
            if (f.resolution !== 'audio only') {
                videoFormats.push(f);
            }
@@ -63,7 +59,10 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
       return resB - resA;
     });
 
-    return { videoFormats: videoFormats.slice(0, 5), audioFormat };
+    return { 
+      videoFormats: videoFormats.slice(0, 5), 
+      audioFormat: audioFormat as Format | null 
+    };
   };
 
   const { videoFormats, audioFormat } = processFormats();
@@ -75,20 +74,15 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
     setDownloadProgress('Starting download...');
     
     try {
-      // Create a form to trigger normal browser download behavior
-      // rather than fetching in memory which can crash the browser for large files
-      const isAudio = selectedFormat === (audioFormat as any)?.format_id;
+      const isAudio = selectedFormat === audioFormat?.format_id;
       const downloadUrl = `/api/download?url=${encodeURIComponent(videoInfo.webpage_url)}&format_id=${selectedFormat}&type=${isAudio ? 'audio' : 'video'}`;
       
-      // Use an anchor tag to trigger the download
-      const a = document.createElement('a');
+      const a = document.body.appendChild(document.createElement('a'));
       a.href = downloadUrl;
       a.setAttribute('download', '');
-      document.body.appendChild(a);
       a.click();
       a.remove();
       
-      // Reset state after a short delay
       setTimeout(() => {
         setIsDownloading(false);
         setDownloadProgress(null);
@@ -135,8 +129,8 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
           
           {audioFormat && (
             <button
-              className={`format-btn ${selectedFormat === (audioFormat as any)?.format_id ? 'selected' : ''}`}
-                onClick={() => setSelectedFormat((audioFormat as any)?.format_id)}
+              className={`format-btn ${selectedFormat === audioFormat.format_id ? 'selected' : ''}`}
+              onClick={() => setSelectedFormat(audioFormat.format_id)}
             >
               <Music size={20} />
               <span className="format-quality">Audio</span>
