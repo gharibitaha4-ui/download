@@ -12,33 +12,56 @@ export async function GET(request: Request) {
 
   try {
     const secretCookiesPath = '/etc/secrets/cookies.txt';
+    const hasCookies = fs.existsSync(secretCookiesPath);
 
-    const options: Record<string, any> = {
+    const baseOptions: Record<string, any> = {
       dumpSingleJson: true,
       noWarnings: true,
       noCheckCertificate: true,
-      // Pass cookies for YouTube if available
-      ...(fs.existsSync(secretCookiesPath) && { cookies: secretCookiesPath }),
     };
 
-    // 1. Fetch info JSON from yt-dlp
-    const output: any = await ytDlp(videoUrl, options);
+    let output: any;
 
-    // 2. Extract l-Direct Video Link & Meta Info
-    const downloadUrl = output.url || (output.formats && output.formats.pop()?.url);
+    try {
+      // Attempt 1: spoof Android client (khfif, bla cookies, kayt7al m3a bezaf videos)
+      output = await ytDlp(videoUrl, {
+        ...baseOptions,
+        extractorArgs: 'youtube:player_client=android',
+      });
+    } catch (firstError: any) {
+      const isBotBlock =
+        firstError?.stderr?.includes('Sign in to confirm') ||
+        firstError?.message?.includes('Sign in to confirm');
+
+      if (isBotBlock && hasCookies) {
+        // Attempt 2: fallback l cookies ila kayn bot detection
+        output = await ytDlp(videoUrl, {
+          ...baseOptions,
+          cookies: secretCookiesPath,
+        });
+      } else {
+        throw firstError;
+      }
+    }
+
+    // Khtar ahsen format (video + audio flen), machi ghi akher wa7d f array
+    const bestFormat =
+      output.formats
+        ?.filter((f: any) => f.vcodec !== 'none' && f.acodec !== 'none')
+        ?.pop() || output.formats?.pop();
+
+    const downloadUrl = output.url || bestFormat?.url;
 
     if (!downloadUrl) {
       return NextResponse.json({ error: 'Could not extract direct video URL' }, { status: 400 });
     }
 
-    // 3. Return Clean JSON Data l-Frontend (Machi raw dump)
     return NextResponse.json({
       title: output.title,
       thumbnail: output.thumbnail,
       duration: output.duration,
-      downloadUrl: downloadUrl, // 👈 Hada hwa direct link dyal MP4
+      downloadUrl,
     });
-
   } catch (error: any) {
     console.error('yt-dlp error:', error);
     return NextResponse.json(
