@@ -77,7 +77,7 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
     try {
       // Create a form to trigger normal browser download behavior
       // rather than fetching in memory which can crash the browser for large files
-      const isAudio = selectedFormat === audioFormat?.format_id;
+      const isAudio = selectedFormat === (audioFormat as any)?.format_id;
       const downloadUrl = `/api/download?url=${encodeURIComponent(videoInfo.webpage_url)}&format_id=${selectedFormat}&type=${isAudio ? 'audio' : 'video'}`;
       
       // Use an anchor tag to trigger the download
