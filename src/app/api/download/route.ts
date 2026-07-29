@@ -11,29 +11,33 @@ export async function GET(request: Request) {
   }
 
   try {
-    // Path dyal secret file f Render
     const secretCookiesPath = '/etc/secrets/cookies.txt';
-    // Path dyal local cookies (ila knti kat-jrb f PC dyalak)
-    const localCookiesPath = './cookies.txt';
 
     const options: Record<string, any> = {
       dumpSingleJson: true,
       noWarnings: true,
       noCheckCertificate: true,
-      extractorArgs: 'youtube:player_client=android,web',
+      // Pass cookies for YouTube if available
+      ...(fs.existsSync(secretCookiesPath) && { cookies: secretCookiesPath }),
     };
 
-    // Kay-t-verifya wach cookies kaynin f Render Secret Files
-    if (fs.existsSync(secretCookiesPath)) {
-      options.cookies = secretCookiesPath;
-    } else if (fs.existsSync(localCookiesPath)) {
-      options.cookies = localCookiesPath;
+    // 1. Fetch info JSON from yt-dlp
+    const output: any = await ytDlp(videoUrl, options);
+
+    // 2. Extract l-Direct Video Link & Meta Info
+    const downloadUrl = output.url || (output.formats && output.formats.pop()?.url);
+
+    if (!downloadUrl) {
+      return NextResponse.json({ error: 'Could not extract direct video URL' }, { status: 400 });
     }
 
-    // Execution dyal yt-dlp b options l-jddad
-    const output = await ytDlp(videoUrl, options);
-
-    return NextResponse.json(output);
+    // 3. Return Clean JSON Data l-Frontend (Machi raw dump)
+    return NextResponse.json({
+      title: output.title,
+      thumbnail: output.thumbnail,
+      duration: output.duration,
+      downloadUrl: downloadUrl, // 👈 Hada hwa direct link dyal MP4
+    });
 
   } catch (error: any) {
     console.error('yt-dlp error:', error);
