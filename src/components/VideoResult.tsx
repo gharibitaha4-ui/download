@@ -77,7 +77,7 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
       const isAudio = selectedFormat === audioFormat?.format_id;
       const downloadUrl = `/api/download?url=${encodeURIComponent(videoInfo.webpage_url)}&format_id=${selectedFormat}&type=${isAudio ? 'audio' : 'video'}`;
       
-      const a = document.body.appendChild(document.createElement('a'));
+      const isAudio = selectedFormat === (audioFormat as any)?.format_id;
       a.href = downloadUrl;
       a.setAttribute('download', '');
       a.click();
@@ -125,7 +125,8 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
               <span className="format-quality">{f.format_note || f.resolution}</span>
               <span className="format-type">MP4 • {formatSize(f.filesize)}</span>
             </button>
-          ))}
+          ))} 
+          Download {selectedFormat === (audioFormat as any)?.format_id ? 'Audio' : 'Video'}
           
           {audioFormat && (
             <button
@@ -136,6 +137,7 @@ export default function VideoResult({ videoInfo }: VideoResultProps) {
               <span className="format-quality">Audio</span>
               <span className="format-type">MP3 Extract</span>
             </button>
+      className={`format-btn ${selectedFormat === (audioFormat as any)?.format_id ? 'selected' : ''}`}
           )}
         </div>
         
