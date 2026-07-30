@@ -1,96 +1,65 @@
 import { NextResponse } from 'next/server';
 import ytDlp from 'yt-dlp-exec';
-import { promises as fs } from 'fs';
-
-const SECRET_COOKIES_PATH = '/etc/secrets/cookies.txt';
+import fs from 'fs';
 
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const videoUrl = searchParams.get('url');
+
+  if (!videoUrl) {
+    return NextResponse.json({ error: 'URL is required' }, { status: 400 });
+  }
+
   try {
-    const { searchParams } = new URL(request.url);
-    const videoUrl = searchParams.get('url');
+    const secretCookiesPath = '/etc/secrets/cookies.txt';
 
-    if (!videoUrl) {
-      return NextResponse.json({ error: 'URL parameter is required' }, { status: 400 });
-    }
-
-    const hasCookies = await fs.access(SECRET_COOKIES_PATH).then(() => true).catch(() => false);
-
-    const baseOptions: Record<string, any> = {
+    // Base options safe for TypeScript YtFlags
+    const options: Record<string, any> = {
       dumpSingleJson: true,
       noWarnings: true,
       noCheckCertificate: true,
-      format: 'best[ext=mp4]/bestvideo[ext=mp4]+bestaudio[ext=m4a]/best',
     };
 
-    let output: any;
-
-    try {
-      // Attempt 1: Spoof Android Client (St3mel 'extractor-args' b kebab-case)
-      output = await ytDlp(videoUrl, {
-        ...baseOptions,
-        'extractor-args': 'youtube:player_client=android',
-      });
-    } catch (firstError: any) {
-      const errorMsg = String(firstError?.stderr || firstError?.message || '');
-      const isBotBlock = errorMsg.includes('Sign in to confirm') || errorMsg.includes('Bot Detection');
-
-      if (isBotBlock && hasCookies) {
-        // Attempt 2: Fallback with cookies file
-        output = await ytDlp(videoUrl, {
-          ...baseOptions,
-          cookies: SECRET_COOKIES_PATH,
-        });
-      } else {
-        throw firstError;
-      }
+    // Zid cookies file ila kan kayn f Render
+    if (fs.existsSync(secretCookiesPath)) {
+      options.cookiefile = secretCookiesPath;
     }
 
-    const downloadUrl = extractDirectUrl(output);
+    // 1. Fetch JSON info from yt-dlp
+    const output: any = await ytDlp(videoUrl, options);
+
+    // 2. Extract Direct MP4 Video URL (TikTok, Insta, YouTube)
+    let downloadUrl = output.url;
+
+    if (!downloadUrl && output.formats && Array.isArray(output.formats)) {
+      // N-qllbo 3la video/audio format
+      const bestFormat = output.formats
+        .reverse()
+        .find((f: any) => f.url && f.ext === 'mp4' && f.vcodec !== 'none');
+
+      downloadUrl = bestFormat?.url || output.formats[output.formats.length - 1]?.url;
+    }
 
     if (!downloadUrl) {
-      return NextResponse.json({ error: 'Could not extract direct stream URL' }, { status: 422 });
+      return NextResponse.json(
+        { error: 'Could not extract direct video URL' },
+        { status: 400 }
+      );
     }
 
+    // 3. Return JSON with the MP4 link to Front-end (Machi Raw File)
     return NextResponse.json({
-      title: output.title ?? 'Untitled Video',
-      thumbnail: output.thumbnail ?? output.thumbnails?.[0]?.url ?? null,
-      duration: output.duration ?? 0,
-      downloadUrl,
+      title: output.title || 'Video',
+      thumbnail: output.thumbnail || output.thumbnails?.[0]?.url || '',
+      duration: output.duration || 0,
+      downloadUrl: downloadUrl, // 👈 Direct MP4 Link
     });
-  } catch (error: any) {
-    console.error('yt-dlp execution error:', error);
-    
-    const errorMessage = typeof error?.stderr === 'string' 
-      ? error.stderr 
-      : error?.message || 'Failed to process YouTube video';
 
+  } catch (error: any) {
+    console.error('yt-dlp error:', error);
     return NextResponse.json(
-      { error: errorMessage },
+      { error: error?.stderr || error?.message || 'Failed to fetch video' },
       { status: 500 }
     );
   }
-}
-
-function extractDirectUrl(output: any): string | null {
-  if (output?.url) return output.url;
-
-  if (Array.isArray(output?.formats)) {
-    const muxedFormats = output.formats.filter(
-      (f: any) => f.vcodec !== 'none' && f.acodec !== 'none' && f.url
-    );
-
-    if (muxedFormats.length > 0) {
-      const bestMuxed = muxedFormats.reduce((prev: any, current: any) => {
-        return (current.height || 0) > (prev.height || 0) ? current : prev;
-      });
-      return bestMuxed.url;
-    }
-
-    const validFormats = output.formats.filter((f: any) => f.url);
-    if (validFormats.length > 0) {
-      return validFormats[validFormats.length - 1].url;
-    }
-  }
-
-  return null;
 }
